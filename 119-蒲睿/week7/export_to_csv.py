@@ -6,8 +6,8 @@ def export2csv(data):
         writer = csv.writer(file)
 
         # 遍历数据列表并写入每一行
-        # for row in data:
-        writer.writerow(data)
+        for row in data:
+            writer.writerow(row)
     file.close()
 
 if __name__ == '__main__':

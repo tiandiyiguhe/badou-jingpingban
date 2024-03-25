@@ -32,20 +32,25 @@ def main(config):
     train_data = load_data(config["train_data_path"], config)
     
     # optional model
-    optional_model = ["bert_lstm", "CNN", "RNN", "LSTM"]
+    optional_model = ["RNN", "CNN", "LSTM"]
+    
+    # output_data
+    test_data = []
     
     # load_model
-    model = TorchModel(config)
-    
-    cuda_flag = torch.cuda.is_available()
-    if cuda_flag:
-        logger.info("cuda is available")
-        model.cuda()
-    optimizer = choose_optimizer(config, model)
-    evaluator = Evaluator(config, model, logger)
-    # train
-    for modelType in optional_model:
-        config["model_type"] = modelType
+    for c_model in optional_model:
+        config["model_type"] = c_model
+        model = TorchModel(config)
+        out_data = []
+        cuda_flag = torch.cuda.is_available()
+        if cuda_flag:
+            logger.info("cuda is available")
+            model.cuda()
+        optimizer = choose_optimizer(config, model)
+        evaluator = Evaluator(config, model, logger)
+        logger.info("Current model type: "+c_model)
+        # train
+        time_start = time.time()
         for epoch in range(config["epoch"]):
             epoch += 1
             model.train()
@@ -53,35 +58,32 @@ def main(config):
             train_loss = []
             for index, batch_data in enumerate(train_data):
                 if cuda_flag:
-                    batch_data = [d.cuda() for d in batch_data]
-                
+                    batch_data = [d.cuda() for d in batch_data] 
+                           
                 optimizer.zero_grad()
                 input_ids, labels = batch_data
                 loss = model(input_ids, labels)
                 loss.backward()
                 optimizer.step()
-                
                 train_loss.append(loss.item()) 
                 if index % int(len(train_data) / 2) == 0:
                     logger.info("batch loss: %f" % loss)
             logger.info("epoch average loss: %f" % np.mean(train_loss))
             acc = evaluator.eval(epoch)
-        out_data = []
         
+        time_end = time.time()
+        time_cost = time_end - time_start
         keys = config.keys()
         for key in keys:
             value = config[key]
             out_data.append(value)
-        out_data.extend((np.mean(train_loss), acc))
-    return acc, out_data
+        out_data.extend((np.mean(train_loss), acc, time_cost))
+        test_data.append(out_data)
+    return acc, test_data
 
 if __name__ == "__main__":
     import time
-    start_time = time.time()
     
-    acc, out_data = main(Config)
+    acc, test_data = main(Config)
     
-    end_time = time.time()
-    time_cost = end_time - start_time
-    out_data.append(time_cost)
-    export2csv(out_data)
+    export2csv(test_data)
